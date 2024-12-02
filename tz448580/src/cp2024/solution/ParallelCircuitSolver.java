@@ -1,3 +1,8 @@
+/**
+ * ParallelCircuitSolver implementation.
+ * Author: Tomasz Zajac <tz448580@students.mimuw.edu.pl>
+ */
+
 package cp2024.solution;
 
 import cp2024.circuit.Circuit;
@@ -228,7 +233,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
         @Override
         public void run() {
-            assert (node.getType() == NodeType.LEAF);
             try {
                 Boolean value = node.getValue();
                 parentQueue.put(value);
@@ -278,9 +282,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
             }
 
             int valuesLeft = childNodes.length;
-            if (type == NodeType.NOT) {
-                assert (valuesLeft == 1);
-            }
 
             // Create a thread for each child node.
             for (CircuitNode child : childNodes) {
@@ -442,8 +443,7 @@ public class ParallelCircuitSolver implements CircuitSolver {
         @Override
         public void run() {
             // Get node type.
-            NodeType type = node.getType();
-            assert (type == NodeType.IF);
+            // NodeType type = node.getType();
 
             // Get children of the current node.
             CircuitNode[] childNodes;
@@ -453,8 +453,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
                 Thread.currentThread().interrupt();
                 return;
             }
-
-            assert (childNodes.length == 3);
 
             // Create a helper thread for each child node.
             List<ConditionHelper> helpers = new ArrayList<>();

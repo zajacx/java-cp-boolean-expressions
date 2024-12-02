@@ -1,3 +1,8 @@
+/**
+ * ParallelCircuitValue implementation.
+ * Author: Tomasz Zajac <tz448580@students.mimuw.edu.pl>
+ */
+
 package cp2024.solution;
 
 import cp2024.circuit.CircuitValue;
@@ -26,7 +31,6 @@ public class ParallelCircuitValue implements CircuitValue {
     // Thread that runs the circuit.
     private Thread circuitThread;
     
-
     public ParallelCircuitValue(Semaphore forValue) {
         this.value = null;
         this.forValue = forValue;
@@ -37,7 +41,6 @@ public class ParallelCircuitValue implements CircuitValue {
         this.flagMutex = new Semaphore(1, true);
     }
 
-    // Na getValue() czekają wątki, które chcą odczytać wartość obwodu.
     @Override
     public boolean getValue() throws InterruptedException {
         // Check if there was an interruption during computations:
