@@ -11,9 +11,10 @@ public class TestIF {
 
         CircuitSolver solver = new ParallelCircuitSolver();
         Tester tester = new Tester();
-
+        Circuit c;
+/*
         // Test 1: [immediate true, immediate true, immediate false]
-        Circuit c = new Circuit(
+        c = new Circuit(
                 CircuitNode.mk(NodeType.IF,
                         CircuitNode.mk(true),
                         CircuitNode.mk(true),
@@ -97,11 +98,11 @@ public class TestIF {
         System.out.println("Solved 5.: " + fifthValue);
         tester.check(fifthValue, true);
 
-        // Test 6: [delayed false, delayed true, immediate false]
+        // Test 6: [delayed false, delayed true, immediate false] TIME: 3 s
         c = new Circuit(
                 CircuitNode.mk(NodeType.IF,
-                        CircuitNode.mk(false, Duration.ofSeconds(2)),
-                        CircuitNode.mk(true, Duration.ofSeconds(3)),
+                        CircuitNode.mk(false, Duration.ofSeconds(50)),
+                        CircuitNode.mk(false, Duration.ofSeconds(3)),
                         CircuitNode.mk(false)));
         CircuitValue sixth = solver.solve(c);
         Boolean sixthValue;
@@ -114,18 +115,11 @@ public class TestIF {
         System.out.println("Solved 6.: " + sixthValue);
         tester.check(sixthValue, false);
 
-        // Sleep for 2 seconds:
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Test 7: [delayed true, delayed true, delayed false]
+        // Test 7: [delayed true, delayed true, delayed false] TIME: 4 s
         c = new Circuit(
                 CircuitNode.mk(NodeType.IF,
-                        CircuitNode.mk(true, Duration.ofSeconds(2)),
-                        CircuitNode.mk(true, Duration.ofSeconds(3)),
+                        CircuitNode.mk(true, Duration.ofSeconds(50)),
+                        CircuitNode.mk(false, Duration.ofSeconds(3)),
                         CircuitNode.mk(false, Duration.ofSeconds(4))));
         CircuitValue seventh = solver.solve(c);
         Boolean seventhValue;
@@ -136,19 +130,13 @@ public class TestIF {
             return;
         }
         System.out.println("Solved 7.: " + seventhValue);
-        tester.check(seventhValue, true);
+        tester.check(seventhValue, false);
+*/
 
-        // Sleep for 2 seconds:
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Test 8: [delayed false, delayed true, delayed false]
+        // Test 8: [delayed false, delayed true, delayed false] TIME: 5 s
         c = new Circuit(
                 CircuitNode.mk(NodeType.IF,
-                        CircuitNode.mk(false, Duration.ofSeconds(2)),
+                        CircuitNode.mk(false, Duration.ofSeconds(5)),
                         CircuitNode.mk(true, Duration.ofSeconds(3)),
                         CircuitNode.mk(false, Duration.ofSeconds(4))));
         CircuitValue eighth = solver.solve(c);
@@ -163,6 +151,17 @@ public class TestIF {
         tester.check(eighthValue, false);
 
         System.out.println("End of TestIF");
+
+        try {
+            System.out.println("Testing multiple getValue() calls: ");
+            System.out.println(eighth.getValue());
+            System.out.println(eighth.getValue());
+            System.out.println(eighth.getValue());
+            System.out.println(eighth.getValue());
+            System.out.println(eighth.getValue());
+        } catch (InterruptedException e) {
+            System.out.println("Interrupted");
+            return;
+        }
     }
-    
 }

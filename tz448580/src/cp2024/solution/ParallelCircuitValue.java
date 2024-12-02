@@ -8,8 +8,6 @@ import java.util.concurrent.Semaphore;
 
 /** 
  * Implementation of the CircuitValue interface.
- * Important: tests will intentionally interrupt only threads blocked
- * on CircuitValue.getValue() method.
  */
 public class ParallelCircuitValue implements CircuitValue {
 
@@ -53,7 +51,6 @@ public class ParallelCircuitValue implements CircuitValue {
         // Here we can read the flag state:
         flagState = isBroken;
         flagMutex.release();
-        System.out.println("Flag state: " + flagState + " detected by " + Thread.currentThread().getName());
 
         // Solver was stopped and didn't compute this value:
         if (flagState) {
@@ -69,9 +66,6 @@ public class ParallelCircuitValue implements CircuitValue {
         // Add the thread to the queue of waiting threads:
         waitingForValue.add(Thread.currentThread());
         queueMutex.release();
-        System.out.println("Thread " + Thread.currentThread().getName() + " joined the queue waiting for PCV.");
-
-        // A co jeśli wątek nie zdąży dodać się do kolejki oczekujących przed przerwaniem?
 
         // Wait for the value to be computed:
         Boolean result;
@@ -79,18 +73,6 @@ public class ParallelCircuitValue implements CircuitValue {
             // We can wait here for a long time:
             forValue.acquire();
         } catch (InterruptedException e) {
-            System.out.println("Thread " + Thread.currentThread().getName() + " was interrupted during computations of PCV.");
-            // When interrupted, initialize stopping all threads working on a circuit.
-            // Important: when interrupted, brokenFlag is already set by stop() method.
-            // CircuitThread will check the stopFlag - if it's set, it will interrupt
-            // all waiting threads. If not - only this thread needs to be stopped.
-            // *Is this interrupt needed?*
-            // If a thread is waiting for PCV:
-            //   a) if stop() is called, the thread will be interrupted by the circuitThread
-            //   b) if stop() isn't called, there is no need to interrupt circuitThread,
-            //      because this thread will be the only one to be interrupted and quietly quit.
-            // circuitThread.interrupt();
-            // Rethrow the exception to the caller.
             throw new InterruptedException();
         }
         result = value;
@@ -131,5 +113,5 @@ public class ParallelCircuitValue implements CircuitValue {
         return isBroken;
     }
 
-
 }
+

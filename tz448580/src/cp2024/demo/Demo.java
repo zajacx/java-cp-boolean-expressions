@@ -1,13 +1,13 @@
 package cp2024.demo;
 
 import cp2024.circuit.*;
-// import cp2024.mp249046.ParallelCircuitSolver;
+import cp2024.solution.ParallelCircuitSolver;
 import java.time.Duration;
 
 public class Demo {
     public static void main(String[] args) throws InterruptedException {
-        // CircuitSolver solver = new ParallelCircuitSolver();
-        CircuitSolver solver = new SequentialSolver();
+        CircuitSolver solver = new ParallelCircuitSolver();
+        // CircuitSolver solver = new SequentialSolver();
 
         // Test 1.
         Circuit c = new Circuit(CircuitNode.mk(true));

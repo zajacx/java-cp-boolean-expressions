@@ -36,12 +36,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
     // Immediately returns a CircuitValue object that represents
     // the result of solving the circuit.
-    // Po stronie metody solve() jest zwrócenie BrokenCircuitValue tylko wtedy, gdy state == false,
-    // czyli po wywołaniu przez kogoś metody stop(). W przeciwnym przypadku zwracany jest obiekt
-    // ParallelCircuitValue, który zostanie zwrócony jako poprawny, jeśli w trakcie obliczeń nie
-    // zostanie wykonany stop(). Jeśli zostanie wykonany stop(), to w obiekcie ParallelCircuitValue
-    // zostanie ustawiona flaga brokenFlag na true, co oznacza, że obliczenia zostały przerwane.
-
     @Override
     public CircuitValue solve(Circuit c) {
 
@@ -58,9 +52,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
             return new BrokenCircuitValue();                // Return a dummy object for each new request. 
         } else {
             Semaphore forValue = new Semaphore(0, true);    // Semaphore to protect the value field.
-            // Waits: an external thread that calls getValue() method.
-            // Signals: CircuitThread.
-
             ParallelCircuitValue circuitValue = new ParallelCircuitValue(forValue);
             Runnable circuitWorker = new CircuitWorker(c, forValue, circuitValue);
             Thread circuitThread = new Thread(circuitWorker);
@@ -74,20 +65,11 @@ public class ParallelCircuitSolver implements CircuitSolver {
             }
             circuitValues.add(circuitValue);                // Store the CircuitValue object.
             circuitValuesMutex.release();                   // Release the mutex.
-            System.out.println("[TEST] " + Thread.currentThread().getName() + " started circuit thread " + circuitThread.getName());
             circuitThread.start();                          // Start the computation of the circuit c.
             return circuitValue;
         }
     }
 
-    // Metoda stop() zatrzymuje solver, więc ustawia state na false. Następnie iteruje po wszystkich
-    // obiektach ParallelCircuitValue, które zostały kiedykolwiek zwrócone przez solver. Jeśli
-    // napotka obiekt, w którym wątek circuitThread nadal jest aktywny, to przerywa ten wątek i
-    // ustawia flagę brokenFlag na true w obiekcie ParallelCircuitValue. Jeśli circuitThread jest
-    // przerwany, to musi sprawdzić, czy została ustawiona flaga brokenFlag - jeśli nie, oznacza
-    // to, że pojedynczy zewnętrzny wątek opuścił kolejkę oczekujących na wartość, a obwód ma
-    // się dalej wyliczać. Jeśli została ustawiona, to circuitThread kończy obliczenie i przerywa
-    // wszystkie zewnętrzne oczekujące wątki.
     @Override
     public void stop() {
         // Iterate through all CircuitValue objects and interrupt threads
@@ -115,11 +97,9 @@ public class ParallelCircuitSolver implements CircuitSolver {
             }
             // Interrupt all alive circuit threads.
             for (ParallelCircuitValue circuitValue : circuitValues) {
-                System.out.println("[TEST] " + Thread.currentThread().getName() + " sees that " + circuitValue.getCircuitThread().getName() + " is alive : " + circuitValue.getCircuitThread().isAlive());
                 Thread circuitThread = circuitValue.getCircuitThread();
                 Semaphore flagMutex = circuitValue.getFlagMutex();
                 if (circuitThread.isAlive()) {
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + " interrupting circuit thread " + circuitThread.getName());
                     try {
                         flagMutex.acquire();
                     } catch (InterruptedException e) {
@@ -153,7 +133,7 @@ public class ParallelCircuitSolver implements CircuitSolver {
     private static class CircuitWorker implements Runnable {
 
         private final Circuit circuit;
-        private final Semaphore forValue;   // SOME external threads wait here.
+        private final Semaphore forValue;   // Some external threads wait here.
         private final ParallelCircuitValue circuitValue;
         private final BlockingQueue<Boolean> myQueue;
         
@@ -170,7 +150,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
         @Override
         public void run() {
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a CircuitWorker");
             // Create a thread for the root node of the circuit.
             CircuitNode root = circuit.getRoot();
             Runnable rootWorker;
@@ -184,7 +163,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
             Thread rootThread = new Thread(rootWorker);
             Boolean value;
             rootThread.start();
-            System.out.println("[TEST] " + Thread.currentThread().getName() + " started root thread " + rootThread.getName());
 
             Queue<Thread> waitingForValue = circuitValue.getQueue();
             Semaphore queueMutex = circuitValue.getQueueMutex();
@@ -216,7 +194,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
                         // Do nothing.
                     }
                     while (waitingForValue.size() > 0) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting waiting thread");
                         Thread waiting = waitingForValue.poll();
                         waiting.interrupt();
                     }
@@ -227,9 +204,7 @@ public class ParallelCircuitSolver implements CircuitSolver {
             }
             
             // If successful, set the value of the circuit.
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I'm the CircuitWorker and got value " + value);
             circuitValue.setValue(value);
-            System.out.println("[TEST] Result value " + value + " set in CircuitValue object");
             forValue.release();
         }
     }
@@ -253,11 +228,9 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
         @Override
         public void run() {
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a LeafWorker, getting my value...");
             assert (node.getType() == NodeType.LEAF);
             try {
                 Boolean value = node.getValue();
-                System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a LeafWorker, I have put " + value + " to my parent, finishing");
                 parentQueue.put(value);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -294,9 +267,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
         public void run() {
             // Get node type.
             NodeType type = node.getType();
-            assert (type == NodeType.NOT || type == NodeType.AND || type == NodeType.OR);
-
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a SimpleWorker of type " + type);
 
             // Get children of the current node.
             CircuitNode[] childNodes;
@@ -324,7 +294,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
                 Thread childThread = new Thread(childWorker);
                 childThreads.add(childThread);
                 childThread.start();
-                System.out.println("[TEST] " + Thread.currentThread().getName() + " started child thread " + childThread.getName());
             }
 
             Boolean value;
@@ -335,13 +304,11 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     value = !myQueue.take();
                 } catch (InterruptedException e) {
                     for (Thread child : childThreads) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                         child.interrupt();
                     }
                     Thread.currentThread().interrupt();
                     return;
                 }
-                System.out.println("[TEST] " + Thread.currentThread().getName() + ": I received value " + !value + " from my child");
             }
             // Case: AND
             else if (type == NodeType.AND) {
@@ -351,20 +318,15 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     try {
                         childValue = myQueue.take();
                     } catch (InterruptedException e) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have been interrupted");
                         for (Thread child : childThreads) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                             child.interrupt();
                         }
                         Thread.currentThread().interrupt();
                         return;
                     }
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": I received value " + childValue + " from my child");
                     value = value && childValue;
                     if (!value) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": Got lazy, breaking");
                         for (Thread child : childThreads) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                             child.interrupt();
                         }
                         break;
@@ -380,20 +342,15 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     try {
                         childValue = myQueue.take();
                     } catch (InterruptedException e) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have been interrupted");
                         for (Thread child : childThreads) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                             child.interrupt();
                         }
                         Thread.currentThread().interrupt();
                         return;
                     }
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": I received value " + childValue + " from my child");
                     value = value || childValue;
                     if (value) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": Got lazy, breaking");
                         for (Thread child : childThreads) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                             child.interrupt();
                         }
                         break;
@@ -412,7 +369,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
                 Thread.currentThread().interrupt();
                 return;
             }
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have put " + value + " to my parent, finishing");
         }
     }
 
@@ -439,7 +395,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
         @Override
         public void run() {
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a ConditionHelper for child " + childNumber);
             Boolean value;
             try {
                 value = helperQueue.take();
@@ -447,11 +402,11 @@ public class ParallelCircuitSolver implements CircuitSolver {
                 Thread.currentThread().interrupt();
                 return;
             }
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have put " + value + " to my parent, finishing");
             try {
                 parentQueue.put(new ConditionPair(childNumber, value));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                return;
             }
         }
 
@@ -486,7 +441,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
         @Override
         public void run() {
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a ConditionWorker");
             // Get node type.
             NodeType type = node.getType();
             assert (type == NodeType.IF);
@@ -527,7 +481,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
             for (ConditionHelper helper : helpers) {
                 Thread helperThread = new Thread(helper);
                 helperThreads.add(helperThread);
-                System.out.println("[TEST] " + Thread.currentThread().getName() + " started helper thread " + helperThread.getName());
                 helperThread.start();
             }
 
@@ -535,7 +488,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
             for (Runnable worker : workers) {
                 Thread childThread = new Thread(worker);
                 childThreads.add(childThread);
-                System.out.println("[TEST] " + Thread.currentThread().getName() + " started child thread " + childThread.getName());
                 childThread.start();
             }
 
@@ -547,16 +499,12 @@ public class ParallelCircuitSolver implements CircuitSolver {
                 
                 try {
                     pair = myQueue.take();
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": I received value " + pair.getValue() + " from my child " + pair.getChildNumber());
 
                 } catch (InterruptedException e) {
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have been interrupted");
                     for (Thread helper : helperThreads) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting helper " + helper.getName());
                         helper.interrupt();
                     }
                     for (Thread child : childThreads) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                         child.interrupt();
                     }
                     Thread.currentThread().interrupt();
@@ -569,7 +517,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
                 // Condition is evaluated and we choose 'true' path:
                 if (receivedValues[0] == 1 && receivedValues[1] != -1) {
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": Condition is true, choosing positive path");
                     for (Thread helper : helperThreads) {
                         helper.interrupt();
                     }
@@ -587,7 +534,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
                 // Condition is evaluated and we choose 'false' path:
                 if (receivedValues[0] == 0 && receivedValues[2] != -1) {
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": Condition is false, choosing negative path");
                     for (Thread helper : helperThreads) {
                         helper.interrupt();
                     }
@@ -606,7 +552,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
                 // Lazy evaluation:
                 if (receivedValues[1] != -1 && receivedValues[2] != -1 && receivedValues[1] == receivedValues[2]) {
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": True and False paths are equal, returning " + (receivedValues[1] == 1));
                     for (Thread helper : helperThreads) {
                         helper.interrupt();
                     }
@@ -653,9 +598,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
         public void run() {
             // Get node type.
             NodeType type = node.getType();
-            assert (type == NodeType.GT || type == NodeType.LT);
-
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I am a ThresholdWorker of type " + type);
 
             // Get threshold.
             int threshold = node.getThreshold();
@@ -675,11 +617,9 @@ public class ParallelCircuitSolver implements CircuitSolver {
 
             // Check if there is a need to evaluate the circuit.
             if (type == NodeType.GT && numChildren <= threshold) {
-                System.out.println("[TEST] No need to evaluate");
                 value = false;
             } 
             else if (type == NodeType.LT && numChildren < threshold) {
-                System.out.println("[TEST] No need to evaluate");
                 value = true;
             }
             else {
@@ -694,7 +634,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     }
                     Thread childThread = new Thread(childWorker);
                     childThreads.add(childThread);
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + " started child thread " + childThread.getName());
                     childThread.start();
                 }
 
@@ -706,15 +645,12 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     try {
                         childValue = myQueue.take();
                     } catch (InterruptedException e) {
-                        System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have been interrupted");
                         for (Thread child : childThreads) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Interrupting child " + child.getName());
                             child.interrupt();
                         }
                         Thread.currentThread().interrupt();
                         return;
                     }
-                    System.out.println("[TEST] " + Thread.currentThread().getName() + ": I received value " + childValue + " from my child");
                     // Count new value:
                     if (childValue) {
                         gotTrue++;
@@ -724,21 +660,17 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     // Check if we can break the loop:
                     if (type == NodeType.GT) {
                         if (gotTrue > threshold) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Got enough true values, breaking");
                             value = true;
                             break;
                         } else if (gotFalse >= numChildren - threshold) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Got enough false values, breaking");
                             value = false;
                             break;
                         }
                     } else {
                         if (gotTrue >= threshold) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Got enough true values, breaking");
                             value = false;
                             break;
                         } else if (gotFalse > numChildren - threshold) {
-                            System.out.println("[TEST] " + Thread.currentThread().getName() + ": Got enough false values, breaking");
                             value = true;
                             break;
                         }
@@ -752,8 +684,6 @@ public class ParallelCircuitSolver implements CircuitSolver {
                     value = gotTrue < threshold;
                 }
             }
-
-            System.out.println("[TEST] " + Thread.currentThread().getName() + ": I have put " + value + " to my parent, finishing");
 
             // Stop all child threads.
             for (Thread child : childThreads) {
@@ -807,3 +737,4 @@ public class ParallelCircuitSolver implements CircuitSolver {
     }
 
 }
+
